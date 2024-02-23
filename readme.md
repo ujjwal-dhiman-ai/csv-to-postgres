@@ -13,5 +13,7 @@ Before running the script, ensure you have the following:
 
 ## Usage
 
+Go to the folder where your csv file is located, and open terminal in that folder. Run the below command by replacing '''csv_file''' with actuall csv file name
+
 ```bash
-run <csv_file_path> <table_name> [-schema <schema_name>] [-mode <append/replace>]
+run <csv_file> <table_name> [-schema <schema_name>] [-mode <append/replace>]
