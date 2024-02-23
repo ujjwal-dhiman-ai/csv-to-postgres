@@ -10,10 +10,11 @@ Before running the script, ensure you have the following:
 - Required Python packages (install them using `pip install -r requirements.txt`)
 - PostgreSQL database with the required credentials
 - Environment variable `DB_STRING` set with the PostgreSQL connection string
+- Before usage, add the project dir path to environment variable.
 
 ## Usage
 
-Go to the folder where your csv file is located, and open terminal in that folder. Run the below command by replacing '''csv_file''' with actuall csv file name
+Go to the folder where your csv file is located, and open terminal in that folder. Run the below command by replacing `csv_file` with actuall csv file name.
 
 ```bash
 run <csv_file> <table_name> [-schema <schema_name>] [-mode <append/replace>]
