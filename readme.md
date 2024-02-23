@@ -14,4 +14,4 @@ Before running the script, ensure you have the following:
 ## Usage
 
 ```bash
-python run.py <csv_file_path> <table_name> [-schema <schema_name>] [-mode <append/replace>]
+run <csv_file_path> <table_name> [-schema <schema_name>] [-mode <append/replace>]
