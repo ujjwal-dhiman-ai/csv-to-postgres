@@ -14,9 +14,6 @@ def parse_args():
 
 
 def main():
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    sys.path.append(script_dir)
-    
     args = parse_args()
     
     csv_file_path = args.csv_file

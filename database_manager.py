@@ -2,6 +2,7 @@ import psycopg2
 from psycopg2 import sql
 import io
 
+
 class DatabaseManager:
     def __init__(self, database_url):
         self.database_url = database_url
@@ -78,11 +79,33 @@ class DatabaseManager:
         except Exception as e:
             print(f"Error creating table '{schema}.{table_name}': {e}")
 
+    def fetch_last_id(self, schema, table_name):
+        last_id_query = """
+            SELECT MAX(id) FROM {}.{}; 
+        """.format(schema, table_name)
+        self.cursor.execute(last_id_query)
+        last_id = self.cursor.fetchone()[0]
+
+        # If the table is empty, set last_id to 0
+        last_id = last_id if last_id is not None else 0
+
+        return last_id
+
+    def update_id_column(self, df, last_id):
+        df['id'] = range(last_id + 1, last_id + 1 + len(df))
+        return df
+
     def push_df_to_database(self, df, schema='public', table_name='your_table_name', mode='append'):
-        df['id'] = range(1, len(df) + 1)
+        # Retrieve the last 'id' value from the existing table in the database if mode == 'append':
+        if mode == 'append':
+            last_id = self.fetch_last_id(schema, table_name)
+            df = self.update_id_column(df, last_id)
+        else:
+            df = self.update_id_column(df, 0)
+
         # Reorder columns to have 'id' in the first position
         df = df[['id'] + [col for col in df.columns if col != 'id']]
-        
+
         buffer = io.StringIO()
         df.to_csv(buffer, index=False, header=False, sep='\t')
         buffer.seek(0)
