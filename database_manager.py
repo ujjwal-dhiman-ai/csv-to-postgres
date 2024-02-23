@@ -47,9 +47,13 @@ class DatabaseManager:
             'bool': 'BOOLEAN',
         }
 
+        # Adding a surrogate key
         columns_data_types = {
-            column: type_mapping.get(str(df.dtypes[column]), 'TEXT')
-            for column in df.columns
+            'id': 'SERIAL PRIMARY KEY',  # Auto-incrementing integer
+            **{
+                column: type_mapping.get(str(df.dtypes[column]), 'TEXT')
+                for column in df.columns
+            }
         }
 
         table_creation_query = sql.SQL('''
@@ -75,6 +79,10 @@ class DatabaseManager:
             print(f"Error creating table '{schema}.{table_name}': {e}")
 
     def push_df_to_database(self, df, schema='public', table_name='your_table_name', mode='append'):
+        df['id'] = range(1, len(df) + 1)
+        # Reorder columns to have 'id' in the first position
+        df = df[['id'] + [col for col in df.columns if col != 'id']]
+        
         buffer = io.StringIO()
         df.to_csv(buffer, index=False, header=False, sep='\t')
         buffer.seek(0)
