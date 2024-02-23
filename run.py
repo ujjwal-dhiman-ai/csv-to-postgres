@@ -1,114 +1,28 @@
-import psycopg2
-from psycopg2 import sql
-import csv
-import io
-import os
+import os, sys
 import pandas as pd
-import psutil
 from time import time
+import argparse
+from database_manager import DatabaseManager
 
-
-class DatabaseManager:
-    def __init__(self, database_url):
-        self.database_url = database_url
-        self.connection = None
-        self.cursor = None
-
-    def connect(self):
-        try:
-            self.connection = psycopg2.connect(self.database_url)
-            self.cursor = self.connection.cursor()
-            print("Connection established.")
-        except psycopg2.Error as e:
-            print("Error: ", e)
-
-    def disconnect(self):
-        if self.connection:
-            self.cursor.close()
-            self.connection.close()
-            print("Connection closed.")
-            
-    def table_exists(self, table_name, schema='public'):
-        try:
-            # Check if the table exists in the specified schema
-            query = """
-                SELECT EXISTS (
-                    SELECT 1
-                    FROM information_schema.tables
-                    WHERE table_schema = %s
-                    AND table_name = %s
-                );
-            """
-            self.cursor.execute(query, (schema, table_name))
-            return self.cursor.fetchone()[0]
-        except psycopg2.Error as e:
-            print(f"Error checking if table exists: {e}")
-            return False
-
-    def create_table(self, df, schema='public', table_name='your_table_name'):
-        type_mapping = {
-            'int64': 'INTEGER',
-            'float64': 'FLOAT',
-            'object': 'TEXT',
-            'bool': 'BOOLEAN',
-        }
-
-        columns_data_types = {
-            column: type_mapping.get(str(df.dtypes[column]), 'TEXT')
-            for column in df.columns
-        }
-
-        table_creation_query = sql.SQL('''
-            CREATE TABLE IF NOT EXISTS {}.{} (
-                {}
-            );
-        ''').format(
-            sql.Identifier(schema),
-            sql.Identifier(table_name),
-            sql.SQL(', ').join(
-                sql.SQL('{} {}').format(
-                    sql.Identifier(column),
-                    sql.SQL(data_type)
-                )
-                for column, data_type in columns_data_types.items()
-            )
-        )
-
-        try:
-            self.cursor.execute(table_creation_query)
-            print(f"Table '{schema}.{table_name}' created successfully.")
-        except Exception as e:
-            print(f"Error creating table '{schema}.{table_name}': {e}")
-
-    def upload_df_to_database(self, df, schema='public', table_name='your_table_name', mode='append'):
-            buffer = io.StringIO()
-            df.to_csv(buffer, index=False, header=False, sep='\t')
-            buffer.seek(0)
-
-            if mode == 'append':
-                copy_query = """
-                    COPY {}.{} FROM STDIN WITH CSV DELIMITER E'\\t' NULL AS '';
-                """.format(schema, table_name)
-            elif mode == 'replace':
-                copy_query = """
-                    TRUNCATE TABLE {}.{};  -- This will delete all rows in the table
-                    COPY {}.{} FROM STDIN WITH CSV DELIMITER E'\\t' NULL AS '';
-                """.format(schema, table_name, schema, table_name)
-            else:
-                raise ValueError("Unsupported insertion mode. Use 'append' or 'replace'.")
-
-            self.cursor.copy_expert(sql=copy_query, file=buffer)
-
-    def execute_query(self, query):
-        self.cursor.execute(query)
-        return self.cursor.fetchall()
+def parse_args():
+    parser = argparse.ArgumentParser(description='Upload CSV to PostgreSQL database.')
+    parser.add_argument('csv_file', type=str, help='Path to the CSV file')
+    parser.add_argument('table_name', type=str, help='Name of the table in the database')
+    parser.add_argument('-schema', type=str, default='public', help='Database schema (default: public)')
+    parser.add_argument('-mode', type=str, choices=['append', 'replace'], default='append', help='Insertion mode (default: append)')
+    return parser.parse_args()
 
 
 def main():
-    csv_file_path = r"D:\Data Engineer\data\archive1\Bank_Stock_Price_10Y.csv"
-    table = 'bank_stock_data'
-    schema = "public"
-    mode = "append"
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    sys.path.append(script_dir)
+    
+    args = parse_args()
+    
+    csv_file_path = args.csv_file
+    table = args.table_name
+    schema = args.schema
+    mode = args.mode
     database_url = os.environ.get('DB_STRING')
 
     try:
@@ -126,18 +40,15 @@ def main():
             print(f"Table created in {round((time() - s),2)} seconds")
         else:
             print("Table already exists.")
-        # db_manager.connection.commit()
         
         s = time()
-        db_manager.upload_df_to_database(df, schema, table, mode)
-        # db_manager.connection.commit()
-        print(f"Table uploaded in {round((time() - s),2)} seconds in {mode} mode.")
+        db_manager.push_df_to_database(df, schema, table, mode)
+        print(f"Data pushed to table in {round((time() - s),2)} seconds in {mode} mode.")
 
         # version_query = "SELECT version();"
         # version = db_manager.execute_query(version_query)
         # print("PostgreSQL database version:", version)
         # print(psutil.Process().memory_info().peak_wset)
-
 
     except Exception as e:
         print("Error: Unable to connect to the database.")
@@ -146,7 +57,6 @@ def main():
     finally:
         if db_manager:
             db_manager.disconnect()
-
 
 if __name__ == "__main__":
     main()
